@@ -1,0 +1,90 @@
+---
+title: "hw_part_ global_gender_inequality_data"
+author: "Miaoyi LI"
+date: "2024-10-27"
+output: html_document
+---
+# workflow
+## lib+package
+## read_csv+geojsson +janitor
+## head()
+## filter/select
+## mutate
+## match/country code
+## map
+
+# data from gii_2010 to gii_2019
+
+#lib
+```{r}
+?
+library(here)
+library(tidyverse)
+library(janitor)
+library(sf)
+library(stringr)
+library(tmap)
+library(tmaptools)
+```
+
+# read_data
+```{r}
+gii_raw <- read_csv(here("prac_week4", "data", "HDR23-24_Composite_indices_complete_time_series.csv"))
+worldsp <- st_read(here("prac_week4", "data", "World_Countries_(Generalized)_9029012925078512962.geojson"))
+```
+
+# data check
+```{r}
+Datatypelist <- gii_raw  %>% 
+  summarise_all(class) %>%
+  pivot_longer(everything(), 
+               names_to="All_variables", 
+               values_to="Variable_class")
+
+Datatypelist
+summary(worldsp)
+```
+
+# filter data
+```{r}
+gii_10_19 <-gii_raw %>%
+  clean_names()%>%
+  select(iso3, country,gii_2010, gii_2019)
+```
+
+# mutate+join
+```{r}
+gii_diff <- gii_10_19%>%
+  mutate(diff=gii_2019-gii_2010)
+
+worldsp_iso3 <- worldsp %>%
+  clean_names()%>%
+  mutate(iso3=countrycode(iso, origin = 'iso2c', destination = 'iso3c', warn = FALSE ))
+
+gii_join <- left_join(worldsp_iso3,
+                      gii_diff,
+                      by = "iso3")%>%
+  select(fid, country.x, iso3, diff, geometry)
+```
+
+# plot
+```{r}
+tmap_mode("plot")
+final_map <- tm_shape(gii_join) + 
+tm_polygons("diff", 
+        style="jenks",
+        palette="YlOrBr",
+        midpoint=NA,
+        title="diff=gii_2019 - gii_2010",
+        alpha = 0.5) + 
+  tm_layout(title = "Gender Inequality Index Difference 2010-2019", title.position = c("center", "top"), legend.position = c("right", "bottom"))
+print(final_map)
+```
+
+# save_for_qgis
+```{r}
+here()
+st_write(gii_diff, "gii_diff_output.geojson", driver = "GeoJSON")
+```
+
+
